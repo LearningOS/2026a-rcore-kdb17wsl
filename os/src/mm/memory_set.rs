@@ -72,6 +72,12 @@ impl MemorySet {
             self.areas.remove(idx);
         }
     }
+    /// whether [start_vpn, end_vpn) overlaps with any existing area
+    pub fn has_overlap(&self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+        self.areas
+            .iter()
+            .any(|area| area.vpn_range.get_start() < end_vpn && start_vpn < area.vpn_range.get_end())
+    }
     /// Add a new MapArea into this MemorySet.
     /// Assuming that there are no conflicts in the virtual address
     /// space.
