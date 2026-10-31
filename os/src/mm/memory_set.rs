@@ -262,6 +262,28 @@ impl MemorySet {
             false
         }
     }
+
+    /// remove the whole area exactly matching [start, end)
+    #[allow(unused)]
+    pub fn remove_area(&mut self, start: VirtAddr, end: VirtAddr) -> bool {
+        if let Some(idx) = self.areas.iter().position(|area| {
+            area.vpn_range.get_start() == start.floor() && area.vpn_range.get_end() == end.ceil()
+        }) {
+            let mut area = self.areas.remove(idx);
+            area.unmap(&mut self.page_table);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// whether [start_vpn, end_vpn) overlaps with any existing area
+    #[allow(unused)]
+    pub fn has_overlap(&self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+        self.areas.iter().any(|area| {
+            area.vpn_range.get_start() < end_vpn && start_vpn < area.vpn_range.get_end()
+        })
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {

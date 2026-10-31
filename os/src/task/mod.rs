@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::*;
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
@@ -71,6 +72,30 @@ lazy_static! {
 }
 
 impl TaskManager {
+    /// Map a range of virtual addresses to physical frames with given permission
+    pub fn map(start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) -> isize {
+        let mut inner = TASK_MANAGER.inner.exclusive_access();
+        let current = inner.current_task;
+        let task = &mut inner.tasks[current];
+        if task.memory_set.has_overlap(start_va.floor(), end_va.ceil()) {
+            return -1;
+        }
+        task.memory_set.insert_framed_area(start_va, end_va, permission);
+        0
+    }
+
+    /// Unmap a range of virtual addresses
+    pub fn unmap(start_va: VirtAddr, end_va: VirtAddr) -> isize {
+        let mut inner = TASK_MANAGER.inner.exclusive_access();
+        let current = inner.current_task;
+        let task = &mut inner.tasks[current];
+        if task.memory_set.remove_area(start_va, end_va) {
+            0
+        } else {
+            -1
+        }
+    }
+
     /// Run the first task in task list.
     ///
     /// Generally, the first task in task list is an idle task (we call it zero process later).
@@ -131,6 +156,20 @@ impl TaskManager {
         let mut inner = self.inner.exclusive_access();
         let cur = inner.current_task;
         inner.tasks[cur].change_program_brk(size)
+    }
+
+    /// Get the syscall count of the current 'Running' task
+    fn get_current_syscall_count(&self, id: usize) -> usize {
+        let inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].syscall_count[id]
+    }
+
+    /// Trace syscall
+    fn trace_syscall(&self, id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].syscall_count[id] += 1;
     }
 
     /// Switch current `Running` task to the task we have found,
@@ -202,3 +241,15 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
 }
+
+/// Get the syscall count of the current 'Running' task
+pub fn get_syscall_count(id: usize) -> usize {
+    TASK_MANAGER.get_current_syscall_count(id)
+}
+
+/// Trace syscall
+pub fn trace_syscall(id: usize) {
+    TASK_MANAGER.trace_syscall(id);
+}
+
+
