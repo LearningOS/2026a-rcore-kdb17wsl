@@ -82,6 +82,8 @@ type DataBlock = [u8; BLOCK_SZ];
 #[repr(C)]
 pub struct DiskInode {
     pub size: u32,
+    /// number of hard links pointing to this inode
+    pub nlink: u32,
     pub direct: [u32; INODE_DIRECT_COUNT],
     pub indirect1: u32,
     pub indirect2: u32,
@@ -93,10 +95,23 @@ impl DiskInode {
     /// indirect1 and indirect2 block are allocated only when they are needed
     pub fn initialize(&mut self, type_: DiskInodeType) {
         self.size = 0;
+        self.nlink = 1;
         self.direct.iter_mut().for_each(|v| *v = 0);
         self.indirect1 = 0;
         self.indirect2 = 0;
         self.type_ = type_;
+    }
+    /// Get the number of hard links
+    pub fn nlink(&self) -> u32 {
+        self.nlink
+    }
+    /// Increase the number of hard links
+    pub fn inc_nlink(&mut self) {
+        self.nlink += 1;
+    }
+    /// Decrease the number of hard links
+    pub fn dec_nlink(&mut self) {
+        self.nlink -= 1;
     }
     /// Whether this inode is a directory
     pub fn is_dir(&self) -> bool {
